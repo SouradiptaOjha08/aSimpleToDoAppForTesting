@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.todoapp</groupId>
-    <artifactId>aSimpleToDoAppForTesting</artifactId>
+    <artifactId>aSimpleToDoAppForTestingCICD</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>aSimpleToDoAppForTesting</name>
-    <description>aSimpleToDoAppForTesting</description>
+    <name>aSimpleToDoAppForTestingCICD</name>
+    <description>Simple Todo API with a Jenkins, Docker Hub, and EC2 CI/CD pipeline</description>
     <url/>
     <licenses>
         <license/>
