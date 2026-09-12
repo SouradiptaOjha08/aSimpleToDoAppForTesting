@@ -80,7 +80,7 @@ docker pull YOUR_DOCKERHUB_USERNAME/todo-api:1
 
 ## 4. Continuous delivery: GitHub to EC2 with Jenkins
 
-Every push to `main` will start Jenkins through a GitHub webhook. Jenkins tests the commit, builds an image, tags it with its build number, pushes that image to Docker Hub, then connects to EC2 through SSH. The EC2 host pulls that exact image and replaces the running `todo-api` container. Access the deployed app at:
+Every push to `main` will start Jenkins through a GitHub webhook. Jenkins tests the commit, builds an image, tags it with its build number, pushes that image to Docker Hub, then pulls that exact image onto the **same EC2 instance** and replaces the running `todo-api` container. Access the deployed app at:
 
 ```text
 http://YOUR_EC2_PUBLIC_DNS_OR_IP:8008/actuator/health
@@ -88,33 +88,30 @@ http://YOUR_EC2_PUBLIC_DNS_OR_IP:8008/actuator/health
 
 ### Prepare the EC2 host once
 
-Use an EC2 instance with a public IPv4 address or public DNS name. Install Docker on it, ensure the login user can run `docker`, then verify it:
+The Jenkins EC2 instance is also the application host. Docker must be running there, and the Jenkins service user must be allowed to run Docker. Verify this from the Jenkins host:
 
 ```sh
 docker version
 docker ps
 ```
 
-In the EC2 security group, add an inbound TCP rule for port `8008` from **your own public IP address**. Also allow SSH (port `22`) only from the Jenkins machine's public IP address. Do not open SSH to the world.
+In the EC2 security group, add an inbound TCP rule for port `8008` from **your own public IP address**. Do not expose port 8008 to the entire internet unless you intentionally want a public demo.
 
 The first version assumes the Docker Hub repository is public, so EC2 can pull it without registry credentials. Keep the Docker daemon running on EC2.
 
 ### Configure Jenkins once
 
-1. Install the Jenkins **Pipeline**, **Git**, **GitHub**, **Credentials Binding**, and **SSH Credentials** plugins.
-2. Ensure the Jenkins agent has Java 21, Docker CLI access to a Docker daemon, and the `ssh` client. The agent must be allowed to connect to the EC2 instance on port 22.
-3. Create a Jenkins credential of type **Username with password** with ID `dockerhub-credentials`. Use your Docker Hub username and a Docker Hub access token.
-4. Create a Jenkins credential of type **SSH Username with private key** with ID `ec2-ssh-key`. Use the EC2 login username (commonly `ubuntu` for Ubuntu or `ec2-user` for Amazon Linux) and the private key that matches the EC2 key pair.
-5. Create a Pipeline job using **Pipeline script from SCM**. Select Git, use this GitHub repository URL, set the branch specifier to `*/main`, and set the script path to `Jenkinsfile`.
-6. In the job's parameter defaults, set `DOCKERHUB_REPOSITORY` to `YOUR_DOCKERHUB_USERNAME/todo-api` and `EC2_HOST` to your EC2 public DNS name or IP address. Save these real values before enabling the webhook.
-7. In the GitHub repository, add a webhook to `https://YOUR_JENKINS_PUBLIC_URL/github-webhook/`, set content type to `application/json`, and choose **Just the push event**.
+1. Create a Jenkins credential of type **Username with password** with ID `dockerhub-credentials`. Use your Docker Hub username and a Docker Hub access token.
+2. Create a Jenkins credential of type **Secret text** with ID `dockerhub-repository`. Its value must be your full Docker Hub repository name, for example `YOUR_DOCKERHUB_USERNAME/todo-api`.
+3. Create a Pipeline job using **Pipeline script from SCM**. Select Git, use this GitHub repository URL, set the branch specifier to `*/main`, and set the script path to `Jenkinsfile`.
+4. In the GitHub repository, add a webhook to `https://YOUR_JENKINS_PUBLIC_URL/github-webhook/`, set content type to `application/json`, and choose **Just the push event**.
 
 The `Jenkinsfile` will then perform these stages automatically for each GitHub push to `main`:
 
 1. Maven clean, test, and package.
 2. Docker image build tagged as `DOCKERHUB_REPOSITORY:BUILD_NUMBER`.
 3. Docker Hub login and push.
-4. SSH deployment to EC2: pull that tag, remove the previous `todo-api` container, and run the replacement with `--restart unless-stopped` and port `8008` exposed.
+4. Local EC2 deployment: pull that tag, remove the previous `todo-api` container, and run the replacement with `--restart unless-stopped` and port `8008` exposed.
 
 After a successful build, test the running deployment:
 
