@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+    ports:
+      - "8008:8008"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8008/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
